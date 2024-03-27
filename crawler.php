@@ -1,45 +1,34 @@
 <?php
 include 'simple_html_dom.php';
 ini_set('user_agent', 'Web-Crawler/2.5');
-$html = file_get_html('https://w3schools.com');
 
-$dom = $html->find("div.w3-card-2.w3-round");
-$titles = [];
-$links = [];
-$descs = [];
+// Fetch the HTML
+$html = file_get_contents('https://yourpetpa.com.au');
 
-foreach ($dom as $element) {
-    foreach ( $element->find('[style=font-size:45px;font-weight:700]') as $h2){
-        $titles[] = $h2->innerText();
-    }
-        forEach($element->find('a.w3-button.black-color') as $link){
-            if($link->hasAttribute('href')){
-                $links[] = $link->getAttribute('href');
-            }
-        }
+// Clean up the HTML with regular expressions
+$html = preg_replace('/<script\b[^>]*>(.*?)<\/script>/is', '', $html); // Remove scripts
+$html = preg_replace('/<!--(.|\s)*?-->/', '', $html); // Remove comments
+$html = preg_replace('/<style\b[^>]*>(.*?)<\/style>/is', '', $html); // Remove style tags
+
+// Load the HTML into a DOM object
+$dom = new simple_html_dom();
+$dom->load($html);
+
+// Fetch all div elements
+$divs = $dom->find('div.product__content__wrap');
+
+// Loop through each div element and fetch the title, image, and price as well as insert into data.csv
+$fp = fopen('data.csv', 'w');
+fputcsv($fp, ['Title', 'Image', 'Price']);
+
+foreach ($divs as $div) {
+    // Fetch the title .product-block__image-container and .product-block__title
+    $title = $div->find('.product-block__title a', 0)->innerText();
+    $image = $div->find('.product-block__image-container .image-one img', 0)->getAttribute('data-src');
+    $price = $div->find('.product-price > .theme_money', 0)->innerText();
+
+    // Write the data to the CSV file
+    fputcsv($fp, [$title, $image, $price]);
 }
 
-// fetch links
-$links = array_map(function($link){
-    return 'https://w3schools.com'.$link;
-}, $links);
-
-foreach ($links as $link) {
-    $html = file_get_html($link);
-    $dom = $html->find("div.w3-panel.w3-info.intro");
-    foreach ($dom as $element) {
-        $desc = '';
-        foreach ( $element->find('p') as $p){
-            echo $desc .= $p->innerText();
-        }
-        $descs[] = $desc;
-    }
-}
-
-$file = fopen('data.csv', 'w');
-// insert data with title, link, desc
-fputcsv($file, ['Title', 'Link', 'Description']);
-foreach ($titles as $key => $title) {
-    fputcsv($file, [$title, $links[$key], $descs[$key] ?? '']);
-}
-
+fclose($fp);
